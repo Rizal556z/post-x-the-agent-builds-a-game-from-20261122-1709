@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Star Catcher — one prompt, one game</title>
+<style>
+  body { margin: 0; background: #0e0a13; color: #fff;
+    font-family: system-ui, sans-serif; display: grid;
+    place-items: center; min-height: 100vh; }
+  .wrap { text-align: center; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  h1 b { color: #c41c83; }
+  p { color: #b9a8c9; margin: 0 0 14px; }
+  canvas { background: #14102a; border: 2px solid #2c2140;
+    border-radius: 12px; display: block; }
+  .hud { display: flex; justify-content: space-between;
+    width: 720px; margin: 0 auto 8px; font-size: 18px; font-weight: 700; }
+  button { margin-top: 12px; background: #c41c83; color: #fff; border: 0;
+    font-size: 18px; font-weight: 700; padding: 10px 28px;
+    border-radius: 999px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>STAR <b>CATCHER</b></h1>
+  <p>Move with your mouse or arrow keys. Catch the falling stars. 60 seconds.</p>
+  <div class="hud"><span id="score">SCORE 0</span><span id="time">TIME 1:00</span></div>
+  <canvas id="game" width="720" height="480"></canvas>
+  <br><button id="again" hidden>PLAY AGAIN</button>
+</div>
+<script>
+  // Star Catcher: a tiny browser game built from one prompt.
+  // No libraries, no network — just a canvas and 60 seconds.
+  const cv = document.getElementById('game');
+  const ctx = cv.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const timeEl = document.getElementById('time');
+  const againBtn = document.getElementById('again');
+
+  const PADDLE = { w: 110, h: 16, x: 305, y: 452, speed: 9 };
+  let stars = [], caught = 0, missed = 0, left = 60, over = false, raf = 0;
+
+  function spawnStar() {
+    stars.push({ x: 20 + Math.random() * 680, y: -20,
+      v: 2.4 + Math.random() * 2.2, r: 12 + Math.random() * 8,
+      spin: Math.random() * Math.PI });
+  }
+
+  function drawStar(s) {
+    // Four-point sparkle.
+    ctx.save();
+    ctx.translate(s.x, s.y);
+    ctx.rotate(s.spin);
+    ctx.fillStyle = '#ffd23f';
+    ctx.beginPath();
+    ctx.moveTo(0, -s.r); ctx.quadraticCurveTo(0, 0, s.r, 0);
+    ctx.quadraticCurveTo(0, 0, 0, s.r); ctx.quadraticCurveTo(0, 0, -s.r, 0);
+    ctx.quadraticCurveTo(0, 0, 0, -s.r);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function frame() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    // Paddle.
+    ctx.fillStyle = '#c41c83';
+    ctx.beginPath();
+    ctx.roundRect(PADDLE.x, PADDLE.y, PADDLE.w, PADDLE.h, 8);
+    ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    // Stars.
+    for (const s of stars) {
+      s.y += s.v; s.spin += 0.02;
+      drawStar(s);
+    }
+    // Catch or miss at the paddle line.
+    stars = stars.filter((s) => {
+      if (s.y < PADDLE.y) return true;
+      if (s.x > PADDLE.x - 10 && s.x < PADDLE.x + PADDLE.w + 10) {
+        caught++; scoreEl.textContent = 'SCORE ' + caught;
+        return false;
+      }
+      missed++;
+      return false;
+    });
+    if (!over) raf = requestAnimationFrame(frame);
+  }
+
+  function tick() {
+    if (over) return;
+    left--;
+    timeEl.textContent = 'TIME 0:' + String(left).padStart(2, '0');
+    if (left <= 0) {
+      over = true;
+      cancelAnimationFrame(raf);
+      ctx.fillStyle = 'rgba(14,10,19,0.85)';
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 54px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('GAME OVER', 360, 220);
+      ctx.font = 'bold 28px system-ui, sans-serif';
+      ctx.fillStyle = '#ffd23f';
+      ctx.fillText('SCORE ' + caught + '  •  ' + caught + ' STARS CAUGHT', 360, 280);
+      againBtn.hidden = false;
+      return;
+    }
+    setTimeout(tick, 1000);
+  }
+
+  cv.addEventListener('mousemove', (e) => {
+    const r = cv.getBoundingClientRect();
+    PADDLE.x = Math.max(0, Math.min(cv.width - PADDLE.w,
+      (e.clientX - r.left) * (cv.width / r.width) - PADDLE.w / 2));
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') PADDLE.x = Math.max(0, PADDLE.x - PADDLE.speed * 2);
+    if (e.key === 'ArrowRight') PADDLE.x = Math.min(cv.width - PADDLE.w, PADDLE.x + PADDLE.speed * 2);
+  });
+  againBtn.addEventListener('click', () => location.reload());
+
+  setInterval(() => { if (!over) spawnStar(); }, 650);
+  tick();
+  frame();
+</script>
+</body>
+</html>
